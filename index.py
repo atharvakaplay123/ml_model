@@ -2,40 +2,26 @@ from flask import Flask, request, jsonify
 import joblib
 import numpy as np
 from flask_cors import CORS
-import os
 
 app = Flask(__name__)
-CORS(app,origins="*")
+CORS(app)  # allow frontend JS (localhost:3000, etc.)
 
 # Load trained model
 model = joblib.load("crop_model.pkl")
 print("✅ Model loaded successfully!")
 
-# Optional: API key for security
-API_KEY = os.environ.get("API_KEY", "changeme123")
-
-@app.before_request
-def verify_key():
-    key = request.headers.get("x-api-key")
-    if key != API_KEY:
-        return jsonify({"error": "Unauthorized"}), 401
-
 @app.route("/")
 def home():
-    return "🌱 Crop Prediction API is live!"
+    return "🌱 Crop Prediction API is running locally!"
 
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
         data = request.get_json(force=True)
         sample = [[
-            data['N'],
-            data['P'],
-            data['K'],
-            data['temperature'],
-            data['humidity'],
-            data['ph'],
-            data['rainfall']
+            data['N'], data['P'], data['K'],
+            data['temperature'], data['humidity'],
+            data['ph'], data['rainfall']
         ]]
         probs = model.predict_proba(sample)
         top3_idx = np.argsort(probs[0])[-3:][::-1]
@@ -43,13 +29,12 @@ def predict():
         top3_probs = [float(probs[0][i]) for i in top3_idx]
 
         return jsonify({
-            "Top 3 Crops": [
-                {"crop": crop, "probability": round(prob*100,2)}
-                for crop, prob in zip(top3_crops, top3_probs)
-            ]
+            top3_crops[0]:top3_probs[0],
+            top3_crops[1]:top3_probs[1],
+            top3_crops[2]:top3_probs[2]
         })
     except Exception as e:
         return jsonify({"error": str(e)})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(debug=True, port=5000)
